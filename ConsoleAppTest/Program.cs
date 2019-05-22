@@ -41,7 +41,7 @@ namespace ConsoleAppTest
 
         private void Watcher_Error(object sender, ErrorEventArgs e)
         {
-            Console.WriteLine(e.GetException());
+            Console.WriteLine(e.GetException());   
         }
 
         private void Watcher_Deleted(object sender, System.IO.FileSystemEventArgs e)
