@@ -70,7 +70,7 @@ namespace WF_SyncFolderDemo
                             destFilePath = destPath + "\\" + flinfo.Name;
                             //if (flinfo.Exists)
                             //{
-                            flinfo.CopyTo(destFilePath, overwriteexisting);
+                                flinfo.CopyTo(destFilePath, overwriteexisting);
                             //}
                             //else
                             //{
@@ -94,21 +94,25 @@ namespace WF_SyncFolderDemo
             catch (Exception ex)
             {
                 ret = false;
-                throw ex;
+                //throw ex;
             }
             return ret;
         }
 
         internal static void DeleteDirOrFile(string destPath)
         {
-            if (Directory.Exists(destPath))
+            try
             {
-                Directory.Delete(destPath, true);
+                if (Directory.Exists(destPath))
+                {
+                    Directory.Delete(destPath, true);
+                }
+                if (File.Exists(destPath) && !FileStatusHelper.IsFileOccupied(destPath))
+                {
+                    File.Delete(destPath);
+                }
             }
-            if (File.Exists(destPath) && !FileStatusHelper.IsFileOccupied(destPath))
-            {
-                File.Delete(destPath);
-            }
+            catch { }
         }
     }
 }

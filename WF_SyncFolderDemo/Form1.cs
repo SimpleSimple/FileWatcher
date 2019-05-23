@@ -7,6 +7,7 @@ using System.Data;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Runtime.Caching;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -24,11 +25,10 @@ namespace WF_SyncFolderDemo
         string trashDir;
         FileSystemWatcher watcher = null;
         DateTime lastRead = DateTime.MinValue;
-        private System.Timers.Timer processTimer;
+
         System.Collections.Concurrent.ConcurrentQueue<string> fileQueue;
         System.Collections.Concurrent.ConcurrentQueue<string> delFileQueue;
-        uint i, j, h, k;
-
+        uint i, j, h, k, changes, creates;
 
         public Form1()
         {
@@ -61,12 +61,13 @@ namespace WF_SyncFolderDemo
                 {
                     if (fileQueue.Count > 0)
                     {
-                        aa:
+
                         h++;
                         //Console.WriteLine("process files：" + fileQueue.Count);
                         string destFilePath = null;
                         fileQueue.TryDequeue(out destFilePath);
                         FileStream fs = null;
+                        aa:
                         try
                         {
                             // 真实创建文件方法
@@ -77,7 +78,13 @@ namespace WF_SyncFolderDemo
                                 fs.Close();
                             }
                             else
-                                Directory.CreateDirectory(destFilePath);
+                            {
+                                if (!Directory.Exists(destFilePath))
+                                {
+                                    Directory.CreateDirectory(destFilePath);
+                                }
+                            }
+
                         }
                         catch (Exception ex)
                         {
@@ -115,22 +122,23 @@ namespace WF_SyncFolderDemo
                 {
                     if (delFileQueue.Count > 0)
                     {
-                        bb:
                         k++;
-                        //Console.WriteLine("process del files：" + delFileQueue.Count);
+                        Console.WriteLine("process del files：" + delFileQueue.Count);
                         string destFilePath = null;
                         delFileQueue.TryDequeue(out destFilePath);
+                        bb:
                         try
                         {
                             // 真正删除文件方法
-                            if (Directory.Exists(destFilePath))
-                            {
-                                Directory.Delete(destFilePath);
-                            }
-                            if (File.Exists(destFilePath))
-                            {
-                                File.Delete(destFilePath);
-                            }
+                            //if (Directory.Exists(destFilePath))
+                            //{
+                            //    Directory.Delete(destFilePath);
+                            //}
+                            //if (File.Exists(destFilePath))
+                            //{
+                            //    File.Delete(destFilePath);
+                            //}
+                            FileOpHelper.DeleteDirOrFile(destFilePath);
                         }
                         catch (Exception ex)
                         {
@@ -201,7 +209,7 @@ namespace WF_SyncFolderDemo
             //{
             watcher = new System.IO.FileSystemWatcher();
             watcher.Path = sourceRootPath;
-            //watcher.NotifyFilter = NotifyFilters.FileName | NotifyFilters.DirectoryName | NotifyFilters.LastWrite;
+            watcher.NotifyFilter = NotifyFilters.FileName | NotifyFilters.DirectoryName | NotifyFilters.LastWrite;
             watcher.Filter = "*.*";
             watcher.InternalBufferSize = 65536;
             watcher.IncludeSubdirectories = true;
@@ -307,6 +315,7 @@ namespace WF_SyncFolderDemo
         private void Watcher_Created(object sender, System.IO.FileSystemEventArgs e)
         {
             //Console.WriteLine(e.FullPath + " | " + e.ChangeType);
+            creates++;
             string fls = e.FullPath;
             string destFilePath;
             //foreach (string fls in Directory.GetFiles(sourceRootPath))
@@ -314,7 +323,7 @@ namespace WF_SyncFolderDemo
             //if (!FileStatusHelper.IsFileOccupied(fls))
             //{
             //FileInfo flinfo = new FileInfo(fls);
-            destFilePath = destRootPath + "\\" + Path.GetFileName(fls);
+            destFilePath = destRootPath + "\\" + e.Name;
             //flinfo.CopyTo(destFilePath, true);  // 测试同步创建完，原目录文件无法删除
             //flinfo = null;
 
@@ -350,37 +359,60 @@ namespace WF_SyncFolderDemo
 
         private void Watcher_Changed(object sender, FileSystemEventArgs e)
         {
-            Console.WriteLine(e.FullPath + " | " + e.ChangeType);
-            ThreadInteropUtils.OpeMainFormControl(() =>
+            //if (!FileOpHelper.isFile(e.FullPath) && e.ChangeType == WatcherChangeTypes.Changed)
+            //    return;
+            //Console.WriteLine(e.FullPath + " | " + e.ChangeType);
+            //if (e.ChangeType == WatcherChangeTypes.Changed)
+            //    return;
+            changes++;
+            if (creates > 0 && changes > 0)
             {
-                this.richTextBox1.Text += "Change folder or file was happened..." + Environment.NewLine;
-            }, this);
+                creates = 0;
+                changes = 0;
+                return;
+            }
 
-            //if (!Path.GetExtension(E.FullPath).Equals(".metadata") && FileOpHelper.isFile(E.FullPath))
+            //if (changes > 1)
             //{
-            //    DateTime lastWriteTime = File.GetLastWriteTime(E.FullPath);
-            //    if (lastWriteTime.Ticks - lastRead.Ticks > 100000)  // 要修改为300000？
-            //    {
-            //        ThreadInteropUtils.OpeMainFormControl(() =>
-            //        {
-            //            this.richTextBox1.Text += "Change folder or file was happened..." + Environment.NewLine;
-            //        }, this);
-            //        SyncProcess();
-            //        lastRead = lastWriteTime;
-
-            //        ThreadInteropUtils.OpeMainFormControl(() =>
-            //        {
-            //            getSpecifiedPathDirsList(sourceRootPath, this.treeView1);
-            //            getSpecifiedPathDirsList(destRootPath, this.treeView2);
-            //        }, this);
-            //    }
+            //    if (changes >= 3000)
+            //        changes = 0;
+            //    return;
             //}
-            FileOpHelper.CopyDirectory(sourceRootPath, destRootPath, true);
 
-            ThreadInteropUtils.OpeMainFormControl(() =>
+            string fls = e.FullPath;
+            string destFilePath;
+
+            //ThreadInteropUtils.OpeMainFormControl(() =>
+            //{
+            //    this.richTextBox1.Text += "Change folder or file was happened..." + Environment.NewLine;
+            //}, this);
+
+            ////FileOpHelper.CopyDirectory(sourceRootPath, destRootPath, true);
+            //try
+            //{
+            if (!FileStatusHelper.IsFileOccupied(fls))
             {
-                this.richTextBox1.Text += "Synchronizing file completed..." + Environment.NewLine + Environment.NewLine;
-            }, this);
+                FileInfo flinfo = new FileInfo(fls);
+                destFilePath = destRootPath + "\\" + e.Name;
+                if (flinfo.Exists)
+                {
+                    flinfo.CopyTo(destFilePath, true);
+                }
+                //else
+                //{
+                //    if (flinfo.LastWriteTime.CompareTo(new FileInfo(destFilePath).LastWriteTime) > 0)
+                //    {
+                //        flinfo.CopyTo(destFilePath, true);
+                //    }
+                //}
+            }
+            //}
+            //catch { }
+
+            //ThreadInteropUtils.OpeMainFormControl(() =>
+            //{
+            //    this.richTextBox1.Text += "Synchronizing file completed..." + Environment.NewLine + Environment.NewLine;
+            //}, this);
         }
 
         private void Watcher_Renamed(object sender, RenamedEventArgs e)
@@ -391,6 +423,9 @@ namespace WF_SyncFolderDemo
             }, this);
 
             //SyncProcess();            
+
+            string oldname = destRootPath + "\\" + e.OldName;
+            FileOpHelper.DeleteDirOrFile(oldname);
 
             FileOpHelper.CopyDirectory(sourceRootPath, destRootPath, true);
 
@@ -403,9 +438,6 @@ namespace WF_SyncFolderDemo
             //    FileInfo flinfo = new FileInfo(e.FullPath);
             //    flinfo.CopyTo(destPath, true);
             //}
-
-            string oldname = destRootPath + "\\" + e.OldName;
-            FileOpHelper.DeleteDirOrFile(oldname);
 
             ThreadInteropUtils.OpeMainFormControl(() =>
             {
