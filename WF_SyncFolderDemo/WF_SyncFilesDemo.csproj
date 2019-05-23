@@ -53,6 +53,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="MyFileInfo.cs" />
     <Compile Include="FileOpHelper.cs" />
     <Compile Include="FileStatusHleper.cs" />
     <Compile Include="Form1.cs">

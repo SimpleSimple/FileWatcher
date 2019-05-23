@@ -68,7 +68,10 @@ namespace WF_SyncFolderDemo
                         {
                             FileInfo flinfo = new FileInfo(fls);
                             destFilePath = destPath + "\\" + flinfo.Name;
+                            //if (flinfo.Exists)
+                            //{
                             flinfo.CopyTo(destFilePath, overwriteexisting);
+                            //}
                             //else
                             //{
                             //    if (flinfo.LastWriteTime.CompareTo(new FileInfo(destFilePath).LastWriteTime) > 0)
@@ -79,46 +82,6 @@ namespace WF_SyncFolderDemo
                         }
 
                     }
-                    foreach (string drs in Directory.GetDirectories(sourcePath))
-                    {
-                        DirectoryInfo drinfo = new DirectoryInfo(drs);
-                        if (CopyDirectory(drs, destPath + drinfo.Name, overwriteexisting) == false)
-                            ret = false;
-                    }
-                }
-                ret = true;
-            }
-            catch (Exception ex)
-            {
-                ret = false;
-                throw ex;
-            }
-            return ret;
-        }
-
-        public static bool CopySingleFile(string sourcePath, string destPath, bool overwriteexisting = false)
-        {
-            bool ret = false;
-            try
-            {
-                sourcePath = sourcePath.EndsWith(@"\") ? sourcePath : sourcePath + @"\";
-                destPath = destPath.EndsWith(@"\") ? destPath : destPath + @"\";
-
-                if (Directory.Exists(sourcePath))
-                {
-                    if (Directory.Exists(destPath) == false)
-                        Directory.CreateDirectory(destPath);
-
-                    string destFilePath;
-                    if (isFile(destPath))
-                    {
-                        FileInfo flinfo = new FileInfo(destPath);
-                        if (!File.Exists(destPath))
-                        {
-                            flinfo.CopyTo(destPath, overwriteexisting);
-                        }
-                    }
-
                     foreach (string drs in Directory.GetDirectories(sourcePath))
                     {
                         DirectoryInfo drinfo = new DirectoryInfo(drs);

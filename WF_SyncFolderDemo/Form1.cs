@@ -22,9 +22,12 @@ namespace WF_SyncFolderDemo
         string destRootPath;
         string tempDir;
         string trashDir;
+        FileSystemWatcher watcher = null;
         DateTime lastRead = DateTime.MinValue;
         private System.Timers.Timer processTimer;
         System.Collections.Concurrent.ConcurrentQueue<string> fileQueue;
+        System.Collections.Concurrent.ConcurrentQueue<string> delFileQueue;
+        uint i, j, h, k;
 
 
         public Form1()
@@ -32,6 +35,7 @@ namespace WF_SyncFolderDemo
             InitializeComponent();
 
             fileQueue = new System.Collections.Concurrent.ConcurrentQueue<string>();
+            delFileQueue = new System.Collections.Concurrent.ConcurrentQueue<string>();
         }
 
         private void Form1_Load(object sender, EventArgs e)
@@ -51,21 +55,111 @@ namespace WF_SyncFolderDemo
             getSpecifiedPathDirsList(sourceRootPath, this.treeView1);
             getSpecifiedPathDirsList(destRootPath, this.treeView2);
 
+            Thread t = new Thread(() =>
+            {
+                while (1 == 1)
+                {
+                    if (fileQueue.Count > 0)
+                    {
+                        aa:
+                        h++;
+                        Console.WriteLine("process files：" + fileQueue.Count);
+                        string destFilePath = null;
+                        fileQueue.TryDequeue(out destFilePath);
+                        FileStream fs = null;
+                        try
+                        {
+                            // 真实创建文件方法
+                            if (Path.GetExtension(destFilePath) != string.Empty)
+                            {
+                                fs = File.Create(destFilePath);
+                                fs.Dispose();
+                                fs.Close();
+                            }
+                            else
+                                Directory.CreateDirectory(destFilePath);
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine(ex.Message);
+                            goto aa;
+                        }
+                        finally
+                        {
+                            if (h >= 3000)
+                            {
+                                h = 0;
+                                Thread.Sleep(2000);
+                            }
+                            if (fileQueue.Count / 2 == 0)
+                            {
+                                ThreadInteropUtils.OpeMainFormControl(() =>
+                                {
+                                    getSpecifiedPathDirsList(sourceRootPath, this.treeView1);
+                                    getSpecifiedPathDirsList(destRootPath, this.treeView2);
+                                }, this);
+                            }
 
-        }
+                        }
+                    }
+                    else
+                        Thread.Sleep(1000);
+                }
+            });
+            t.IsBackground = true;
+            t.Start();
 
-        private void button1_Click(object sender, EventArgs e)
-        {
-            FolderBrowserDialog path = new FolderBrowserDialog();
-            path.ShowDialog();
-            this.textBox1.Text = path.SelectedPath;
-        }
-
-        private void button2_Click(object sender, EventArgs e)
-        {
-            FolderBrowserDialog path = new FolderBrowserDialog();
-            path.ShowDialog();
-            this.textBox2.Text = path.SelectedPath;
+            Thread t2 = new Thread(() =>
+            {
+                while (1 == 1)
+                {
+                    if (delFileQueue.Count > 0)
+                    {
+                        bb:
+                        k++;
+                        Console.WriteLine("process del files：" + delFileQueue.Count);
+                        string destFilePath = null;
+                        delFileQueue.TryDequeue(out destFilePath);
+                        try
+                        {
+                            // 真正删除文件方法
+                            if (Directory.Exists(destFilePath))
+                            {
+                                Directory.Delete(destFilePath);
+                            }
+                            if (File.Exists(destFilePath))
+                            {
+                                File.Delete(destFilePath);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine(ex.Message);
+                            goto bb;
+                        }
+                        finally
+                        {
+                            if (k >= 3000)
+                            {
+                                k = 0;
+                                Thread.Sleep(2000);
+                            }
+                            if (fileQueue.Count / 2 == 0)
+                            {
+                                ThreadInteropUtils.OpeMainFormControl(() =>
+                                {
+                                    getSpecifiedPathDirsList(sourceRootPath, this.treeView1);
+                                    getSpecifiedPathDirsList(destRootPath, this.treeView2);
+                                }, this);
+                            }
+                        }
+                    }
+                    else
+                        Thread.Sleep(1000);
+                }
+            });
+            t2.IsBackground = true;
+            t2.Start();
         }
 
         private void ProcessRefresh(object sender, ElapsedEventArgs args)
@@ -96,156 +190,112 @@ namespace WF_SyncFolderDemo
             }
             finally
             {
-                if (processTimer != null)
-                {
-                    processTimer.Stop();
-                    processTimer.Dispose();
-                    processTimer = null;
-                }
                 //rwlock.ExitReadLock();
             }
         }
 
+        void StartWatch()
+        {
+
+            //using (watcher = new System.IO.FileSystemWatcher())
+            //{
+            watcher = new System.IO.FileSystemWatcher();
+            watcher.Path = sourceRootPath;
+            //watcher.NotifyFilter = NotifyFilters.FileName | NotifyFilters.DirectoryName | NotifyFilters.LastWrite;
+            watcher.Filter = "*.*";
+            watcher.InternalBufferSize = 65536;
+            watcher.IncludeSubdirectories = false;
+
+            watcher.Created += Watcher_Created;
+            watcher.Deleted += Watcher_Deleted;
+            watcher.Changed += Watcher_Changed;
+            watcher.Renamed += Watcher_Renamed;
+            //watcher.Error += Watcher_Error;
+
+            watcher.EnableRaisingEvents = true;
+            //}
+        }
+
         private void button3_Click(object sender, EventArgs e)
         {
-            var watcher = new System.IO.FileSystemWatcher
-            {
-                //NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName | NotifyFilters.DirectoryName,
-                Path = sourceRootPath + @"\",
-                IncludeSubdirectories = true
-            };
+            StartWatch();
             this.button3.Enabled = false;
 
             try
             {
                 // 监控创建目录或文件
-                watcher.Created += (S, E) =>
-                {
-                    Console.WriteLine(E.FullPath + " | " + E.ChangeType);
-                    //ThreadInteropUtils.OpeMainFormControl(() =>
-                    //{
-                    //    this.richTextBox1.Text += "Create folder or file was happened..." + Environment.NewLine;
-                    //}, this);
+                //watcher.Created += (S, E) =>
+                //{
+                //    Console.WriteLine(E.FullPath + " | " + E.ChangeType);
+                //    //ThreadInteropUtils.OpeMainFormControl(() =>
+                //    //{
+                //    //    this.richTextBox1.Text += "Create folder or file was happened..." + Environment.NewLine;
+                //    //}, this);
 
-                    //SyncProcess();
+                //    //SyncProcess();
 
-                    // v2.0
-                    //Thread.Sleep(5000);
-                    //FileOpHelper.CopyDirectory(sourceRootPath, destRootPath, true);
+                //    // v2.0
+                //    //Thread.Sleep(5000);
+                //    //FileOpHelper.CopyDirectory(sourceRootPath, destRootPath, true);
 
-                    string destFilePath;
-                    foreach (string fls in Directory.GetFiles(sourceRootPath))
-                    {
-                        if (!FileStatusHelper.IsFileOccupied(fls))
-                        {
-                            //FileInfo flinfo = new FileInfo(fls);
-                            destFilePath = destRootPath + "\\" + Path.GetFileName(fls);
-                            //flinfo.CopyTo(destFilePath, true);
-                            FileStream fs = File.Create(destFilePath);
-                            fs.Dispose();
-                            fs.Close();
-                        }
-                    }
+                //    string destFilePath;
+                //    foreach (string fls in Directory.GetFiles(sourceRootPath))
+                //    {
+                //    //    if (!FileStatusHelper.IsFileOccupied(fls))
+                //    //    {
+                //    //        //FileInfo flinfo = new FileInfo(fls);
+                //    destFilePath = destRootPath + "\\" + Path.GetFileName(fls);
+                //    //        //flinfo.CopyTo(destFilePath, true);
+                //    //        FileStream fs = File.Create(destFilePath);
+                //    //        fs.Dispose();
+                //    //        fs.Close();
+                //    //    }
+                //    }
 
-                    //ThreadInteropUtils.OpeMainFormControl(() =>
-                    //{
-                    //    this.richTextBox1.Text += "Synchronizing file completed..." + Environment.NewLine + Environment.NewLine;
-                    //}, this);
+                //    // 把所有创建信息直接放入队列
+                //    fileQueue.Enqueue(destFilePath);
 
-                    //if (processTimer == null)
-                    //{
-                    //    processTimer = new System.Timers.Timer(2000);
-                    //    processTimer.Elapsed += ProcessRefresh;
-                    //    processTimer.Start();
-                    //}
-                    //Thread t = new Thread(() =>
-                    //{
-                    //    ThreadInteropUtils.OpeMainFormControl(() =>
-                    //    {
-                    //        getSpecifiedPathDirsList(sourceRootPath, this.treeView1);
-                    //        getSpecifiedPathDirsList(destRootPath, this.treeView2);
-                    //    }, this);
-                    //});
-                    //t.Start();
-
-                };
+                //};
 
                 // 监控删除目录或文件
-                watcher.Deleted += (S, E) =>
-                {
-                    Console.WriteLine(E.FullPath + " | " + E.ChangeType);
-                    //ThreadInteropUtils.OpeMainFormControl(() =>
-                    //{
-                    //    this.richTextBox1.Text += "Delete folder or file was happened..." + Environment.NewLine;
-                    //}, this);
+                //watcher.Deleted += (S, E) =>
+                //{
+                //    Console.WriteLine(E.FullPath + " | " + E.ChangeType);
+                //    //ThreadInteropUtils.OpeMainFormControl(() =>
+                //    //{
+                //    //    this.richTextBox1.Text += "Delete folder or file was happened..." + Environment.NewLine;
+                //    //}, this);
 
-                    //SyncProcess();
+                //    //SyncProcess();
 
-                    string filename = Path.GetFileName(E.FullPath);
-                    string destPath = destRootPath + "\\" + filename;
-                    FileOpHelper.DeleteDirOrFile(destPath);
+                //    string filename = Path.GetFileName(E.FullPath);
+                //    string destPath = destRootPath + "\\" + filename;
+                //    FileOpHelper.DeleteDirOrFile(destPath);
 
-                    //fileQueue.Enqueue(destPath);
+                //    //fileQueue.Enqueue(destPath);
 
-                    //ThreadInteropUtils.OpeMainFormControl(() =>
-                    //{
-                    //    this.richTextBox1.Text += "Synchronizing file completed..." + Environment.NewLine + Environment.NewLine;
-                    //}, this);
+                //    //ThreadInteropUtils.OpeMainFormControl(() =>
+                //    //{
+                //    //    this.richTextBox1.Text += "Synchronizing file completed..." + Environment.NewLine + Environment.NewLine;
+                //    //}, this);
 
-                    //ThreadInteropUtils.OpeMainFormControl(() =>
-                    //{
-                    //    getSpecifiedPathDirsList(sourceRootPath, this.treeView1);
-                    //    getSpecifiedPathDirsList(destRootPath, this.treeView2);
-                    //}, this);
+                //    //ThreadInteropUtils.OpeMainFormControl(() =>
+                //    //{
+                //    //    getSpecifiedPathDirsList(sourceRootPath, this.treeView1);
+                //    //    getSpecifiedPathDirsList(destRootPath, this.treeView2);
+                //    //}, this);
 
-                    //if (processTimer == null)
-                    //{
-                    //    processTimer = new System.Timers.Timer(2000);
-                    //    processTimer.Elapsed += ProcessRefresh;
-                    //    processTimer.Start();
-                    //}
-                };
-
-                // 监控变更文件
-                watcher.Changed += (S, E) =>
-                {
-                    Console.WriteLine(E.FullPath + " | " + E.ChangeType);
-                    ThreadInteropUtils.OpeMainFormControl(() =>
-                    {
-                        this.richTextBox1.Text += "Change folder or file was happened..." + Environment.NewLine;
-                    }, this);
-
-                    //if (!Path.GetExtension(E.FullPath).Equals(".metadata") && FileOpHelper.isFile(E.FullPath))
-                    //{
-                    //    DateTime lastWriteTime = File.GetLastWriteTime(E.FullPath);
-                    //    if (lastWriteTime.Ticks - lastRead.Ticks > 100000)  // 要修改为300000？
-                    //    {
-                    //        ThreadInteropUtils.OpeMainFormControl(() =>
-                    //        {
-                    //            this.richTextBox1.Text += "Change folder or file was happened..." + Environment.NewLine;
-                    //        }, this);
-                    //        SyncProcess();
-                    //        lastRead = lastWriteTime;
-
-                    //        ThreadInteropUtils.OpeMainFormControl(() =>
-                    //        {
-                    //            getSpecifiedPathDirsList(sourceRootPath, this.treeView1);
-                    //            getSpecifiedPathDirsList(destRootPath, this.treeView2);
-                    //        }, this);
-                    //    }
-                    //}
-                    FileOpHelper.CopyDirectory(sourceRootPath, destRootPath);
-
-                    ThreadInteropUtils.OpeMainFormControl(() =>
-                    {
-                        this.richTextBox1.Text += "Synchronizing file completed..." + Environment.NewLine + Environment.NewLine;
-                    }, this);
-
-                };
+                //    //if (processTimer == null)
+                //    //{
+                //    //    processTimer = new System.Timers.Timer(2000);
+                //    //    processTimer.Elapsed += ProcessRefresh;
+                //    //    processTimer.Start();
+                //    //}
+                //};
 
                 // 监控修改目录或文件
-                watcher.Renamed += OnRenamed;
-                watcher.EnableRaisingEvents = true;
+                //watcher.Renamed += OnRenamed;
+                //watcher.EnableRaisingEvents = true;
             }
             catch (Exception exc)
             {
@@ -254,7 +304,86 @@ namespace WF_SyncFolderDemo
 
         }
 
-        private void OnRenamed(object sender, RenamedEventArgs e)
+        private void Watcher_Created(object sender, System.IO.FileSystemEventArgs e)
+        {
+            //Console.WriteLine(e.FullPath + " | " + e.ChangeType);
+            string fls = e.FullPath;
+            string destFilePath;
+            //foreach (string fls in Directory.GetFiles(sourceRootPath))
+            //{
+            //if (!FileStatusHelper.IsFileOccupied(fls))
+            //{
+            //FileInfo flinfo = new FileInfo(fls);
+            destFilePath = destRootPath + "\\" + Path.GetFileName(fls);
+            //flinfo.CopyTo(destFilePath, true);  // 测试同步创建完，原目录文件无法删除
+            //flinfo = null;
+
+            //FileStream fs = File.Create(destFilePath);
+            //fs.Dispose();
+            //fs.Close();
+
+
+            // 创建事件太慢，把要创建的文件放队列，在线程去执行
+            fileQueue.Enqueue(destFilePath);
+            //if (fileQueue.Count > 2000)
+            //    Thread.Sleep(2000);
+            //}
+            //}
+
+        }
+
+        private void Watcher_Deleted(object sender, System.IO.FileSystemEventArgs e)
+        {
+            //Console.WriteLine(e.FullPath + " | " + e.ChangeType + " | " + times);
+
+            //string filename = Path.GetFileName(e.FullPath);
+            //string destPath = destRootPath + "\\" + filename;
+            //FileOpHelper.DeleteDirOrFile(destPath);
+
+            string destPath = destRootPath + @"\" + e.Name;
+            delFileQueue.Enqueue(destPath);
+            //while (File.Exists(destPath))
+            //{
+            //File.Delete(destPath);
+            //}
+        }
+
+        private void Watcher_Changed(object sender, FileSystemEventArgs e)
+        {
+            Console.WriteLine(e.FullPath + " | " + e.ChangeType);
+            ThreadInteropUtils.OpeMainFormControl(() =>
+            {
+                this.richTextBox1.Text += "Change folder or file was happened..." + Environment.NewLine;
+            }, this);
+
+            //if (!Path.GetExtension(E.FullPath).Equals(".metadata") && FileOpHelper.isFile(E.FullPath))
+            //{
+            //    DateTime lastWriteTime = File.GetLastWriteTime(E.FullPath);
+            //    if (lastWriteTime.Ticks - lastRead.Ticks > 100000)  // 要修改为300000？
+            //    {
+            //        ThreadInteropUtils.OpeMainFormControl(() =>
+            //        {
+            //            this.richTextBox1.Text += "Change folder or file was happened..." + Environment.NewLine;
+            //        }, this);
+            //        SyncProcess();
+            //        lastRead = lastWriteTime;
+
+            //        ThreadInteropUtils.OpeMainFormControl(() =>
+            //        {
+            //            getSpecifiedPathDirsList(sourceRootPath, this.treeView1);
+            //            getSpecifiedPathDirsList(destRootPath, this.treeView2);
+            //        }, this);
+            //    }
+            //}
+            FileOpHelper.CopyDirectory(sourceRootPath, destRootPath, true);
+
+            ThreadInteropUtils.OpeMainFormControl(() =>
+            {
+                this.richTextBox1.Text += "Synchronizing file completed..." + Environment.NewLine + Environment.NewLine;
+            }, this);
+        }
+
+        private void Watcher_Renamed(object sender, RenamedEventArgs e)
         {
             ThreadInteropUtils.OpeMainFormControl(() =>
             {
@@ -263,17 +392,17 @@ namespace WF_SyncFolderDemo
 
             //SyncProcess();            
 
-            FileOpHelper.CopyDirectory(sourceRootPath, destRootPath);
+            FileOpHelper.CopyDirectory(sourceRootPath, destRootPath, true);
 
-            string destPath = destRootPath + "\\" + e.Name;
-            if (!Directory.Exists(destPath) && FileOpHelper.isFile(destPath) == false)
-                Directory.CreateDirectory(destPath);
+            //string destPath = destRootPath + "\\" + e.Name;
+            //if (!Directory.Exists(destPath) && FileOpHelper.isFile(destPath) == false)
+            //    Directory.CreateDirectory(destPath);
 
-            if (!File.Exists(destPath) && FileOpHelper.isFile(destPath))
-            {
-                FileInfo flinfo = new FileInfo(e.FullPath);
-                flinfo.CopyTo(destPath, true);
-            }
+            //if (!File.Exists(destPath) && FileOpHelper.isFile(destPath))
+            //{
+            //    FileInfo flinfo = new FileInfo(e.FullPath);
+            //    flinfo.CopyTo(destPath, true);
+            //}
 
             string oldname = destRootPath + "\\" + e.OldName;
             FileOpHelper.DeleteDirOrFile(oldname);
