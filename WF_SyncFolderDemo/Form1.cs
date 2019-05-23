@@ -150,7 +150,7 @@ namespace WF_SyncFolderDemo
                             if (k >= 3000)
                             {
                                 k = 0;
-                                Thread.Sleep(2000);
+                                Thread.Sleep(1000);
                             }
                             if (delFileQueue.Count == 0)
                             {
@@ -361,16 +361,16 @@ namespace WF_SyncFolderDemo
         {
             //if (!FileOpHelper.isFile(e.FullPath) && e.ChangeType == WatcherChangeTypes.Changed)
             //    return;
-            //Console.WriteLine(e.FullPath + " | " + e.ChangeType);
+            Console.WriteLine(e.FullPath + " | " + e.ChangeType);
             //if (e.ChangeType == WatcherChangeTypes.Changed)
             //    return;
-            changes++;
-            if (creates > 0 && changes > 0)
-            {
-                creates = 0;
-                changes = 0;
-                return;
-            }
+            //changes++;
+            //if (creates > 0 && changes > 0)
+            //{
+            //    creates = 0;
+            //    changes = 0;
+            //    return;
+            //}
 
             //if (changes > 1)
             //{
@@ -388,26 +388,21 @@ namespace WF_SyncFolderDemo
             //}, this);
 
             ////FileOpHelper.CopyDirectory(sourceRootPath, destRootPath, true);
-            //try
-            //{
-            if (!FileStatusHelper.IsFileOccupied(fls))
+            try
             {
-                FileInfo flinfo = new FileInfo(fls);
+                //aa:
+                if (!FileOpHelper.FileIsReady(fls)) return;
+
                 destFilePath = destRootPath + "\\" + e.Name;
-                if (flinfo.Exists)
-                {
-                    flinfo.CopyTo(destFilePath, true);
-                }
-                //else
+                FileInfo flinfo = new FileInfo(fls);
+                //if (flinfo.Exists)
                 //{
-                //    if (flinfo.LastWriteTime.CompareTo(new FileInfo(destFilePath).LastWriteTime) > 0)
-                //    {
-                //        flinfo.CopyTo(destFilePath, true);
-                //    }
-                //}
+                flinfo.CopyTo(destFilePath, true);
             }
-            //}
-            //catch { }
+            catch (IOException ex)
+            {
+                throw ex;
+            }
 
             //ThreadInteropUtils.OpeMainFormControl(() =>
             //{
@@ -484,7 +479,10 @@ namespace WF_SyncFolderDemo
             TreeNode node = new TreeNode("文件");
             treeView.Nodes.Add(node);
             DirectoryInfo dir = new DirectoryInfo(path);
+            //if (dir.Exists)
+            //{
             Traverse(node, dir);
+            //}
 
             treeView.Nodes[0].Expand();
         }

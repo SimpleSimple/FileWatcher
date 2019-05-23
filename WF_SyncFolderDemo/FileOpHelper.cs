@@ -114,5 +114,22 @@ namespace WF_SyncFolderDemo
             }
             catch { }
         }
+
+        public static bool FileIsReady(string path)
+        {
+            //One exception per file rather than several like in the polling pattern
+            try
+            {
+                //If we can't open the file, it's still copying
+                using (var file = File.Open(path, FileMode.Open, FileAccess.Read, FileShare.Read))
+                {
+                    return true;
+                }
+            }
+            catch (IOException)
+            {
+                return false;
+            }
+        }
     }
 }
