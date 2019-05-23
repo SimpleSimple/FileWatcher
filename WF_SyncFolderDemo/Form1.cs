@@ -63,7 +63,7 @@ namespace WF_SyncFolderDemo
                     {
                         aa:
                         h++;
-                        Console.WriteLine("process files：" + fileQueue.Count);
+                        //Console.WriteLine("process files：" + fileQueue.Count);
                         string destFilePath = null;
                         fileQueue.TryDequeue(out destFilePath);
                         FileStream fs = null;
@@ -89,7 +89,7 @@ namespace WF_SyncFolderDemo
                             if (h >= 3000)
                             {
                                 h = 0;
-                                Thread.Sleep(2000);
+                                Thread.Sleep(1000);
                             }
                             if (fileQueue.Count / 2 == 0)
                             {
@@ -117,7 +117,7 @@ namespace WF_SyncFolderDemo
                     {
                         bb:
                         k++;
-                        Console.WriteLine("process del files：" + delFileQueue.Count);
+                        //Console.WriteLine("process del files：" + delFileQueue.Count);
                         string destFilePath = null;
                         delFileQueue.TryDequeue(out destFilePath);
                         try
@@ -144,7 +144,7 @@ namespace WF_SyncFolderDemo
                                 k = 0;
                                 Thread.Sleep(2000);
                             }
-                            if (fileQueue.Count / 2 == 0)
+                            if (delFileQueue.Count / 2 == 0)
                             {
                                 ThreadInteropUtils.OpeMainFormControl(() =>
                                 {

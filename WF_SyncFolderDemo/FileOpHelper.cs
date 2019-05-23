@@ -101,18 +101,14 @@ namespace WF_SyncFolderDemo
 
         internal static void DeleteDirOrFile(string destPath)
         {
-            if (!FileStatusHelper.IsFileOccupied(destPath))
+            if (Directory.Exists(destPath))
             {
-                if (Directory.Exists(destPath))
-                {
-                    Directory.Delete(destPath, true);
-                }
-                if (File.Exists(destPath))
-                {
-                    File.Delete(destPath);
-                }
+                Directory.Delete(destPath, true);
             }
-
+            if (File.Exists(destPath) && !FileStatusHelper.IsFileOccupied(destPath))
+            {
+                File.Delete(destPath);
+            }
         }
     }
 }
