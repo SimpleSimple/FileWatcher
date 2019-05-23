@@ -144,7 +144,7 @@ namespace WF_SyncFolderDemo
                                 k = 0;
                                 Thread.Sleep(2000);
                             }
-                            if (delFileQueue.Count / 2 == 0)
+                            if (delFileQueue.Count == 0)
                             {
                                 ThreadInteropUtils.OpeMainFormControl(() =>
                                 {
@@ -204,7 +204,7 @@ namespace WF_SyncFolderDemo
             //watcher.NotifyFilter = NotifyFilters.FileName | NotifyFilters.DirectoryName | NotifyFilters.LastWrite;
             watcher.Filter = "*.*";
             watcher.InternalBufferSize = 65536;
-            watcher.IncludeSubdirectories = false;
+            watcher.IncludeSubdirectories = true;
 
             watcher.Created += Watcher_Created;
             watcher.Deleted += Watcher_Deleted;
