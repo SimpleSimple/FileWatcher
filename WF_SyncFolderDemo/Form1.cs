@@ -394,7 +394,7 @@ namespace WF_SyncFolderDemo
                 //    fs.Close();
                 //}
 
-                //watcher.EnableRaisingEvents = false;
+                //watcher.EnableRaisingEvents = false; 
                 //using (FileStream fs = new FileStream(fls, FileMode.Open))
                 //{
                 //    using (StreamReader sr = new StreamReader(fs))
