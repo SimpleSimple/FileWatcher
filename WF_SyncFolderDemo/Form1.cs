@@ -26,16 +26,18 @@ namespace WF_SyncFolderDemo
         FileSystemWatcher watcher = null;
         DateTime lastRead = DateTime.MinValue;
 
-        System.Collections.Concurrent.ConcurrentQueue<string> fileQueue;
+        //System.Collections.Concurrent.ConcurrentQueue<string> fileQueue;
         System.Collections.Concurrent.ConcurrentQueue<string> delFileQueue;
+        System.Collections.Concurrent.ConcurrentQueue<MyFileInfo> fileQueue;
         uint i, j, h, k, changes, creates;
 
         public Form1()
         {
             InitializeComponent();
 
-            fileQueue = new System.Collections.Concurrent.ConcurrentQueue<string>();
+            //fileQueue = new System.Collections.Concurrent.ConcurrentQueue<string>();
             delFileQueue = new System.Collections.Concurrent.ConcurrentQueue<string>();
+            fileQueue = new System.Collections.Concurrent.ConcurrentQueue<MyFileInfo>();
         }
 
         private void Form1_Load(object sender, EventArgs e)
@@ -61,11 +63,14 @@ namespace WF_SyncFolderDemo
                 {
                     if (fileQueue.Count > 0)
                     {
-
                         h++;
                         //Console.WriteLine("process files：" + fileQueue.Count);
+
                         string destFilePath = null;
-                        fileQueue.TryDequeue(out destFilePath);
+                        //fileQueue.TryDequeue(out destFilePath);
+                        var fileInfo = new MyFileInfo();
+                        fileQueue.TryDequeue(out fileInfo);
+                        destFilePath = fileInfo.Path;
                         FileStream fs = null;
                     aa:
                         try
@@ -84,7 +89,6 @@ namespace WF_SyncFolderDemo
                                     Directory.CreateDirectory(destFilePath);
                                 }
                             }
-
                         }
                         catch (Exception ex)
                         {
@@ -93,12 +97,12 @@ namespace WF_SyncFolderDemo
                         }
                         finally
                         {
-                            if (h >= 3000)
-                            {
-                                h = 0;
-                                Thread.Sleep(1000);
-                            }
-                            if (fileQueue.Count / 2 == 0)
+                            //if (h >= 3000)
+                            //{
+                            //    h = 0;
+                            //    Thread.Sleep(1000);
+                            //}
+                            if (fileQueue.Count == 0)
                             {
                                 ThreadInteropUtils.OpeMainFormControl(() =>
                                 {
@@ -208,7 +212,6 @@ namespace WF_SyncFolderDemo
             //using (watcher = new System.IO.FileSystemWatcher())
             //{
             watcher = new System.IO.FileSystemWatcher();
-            watcher.BeginInit();
             watcher.Path = sourceRootPath;
             watcher.NotifyFilter = NotifyFilters.FileName | NotifyFilters.DirectoryName | NotifyFilters.LastWrite;
             watcher.Filter = "*.*";
@@ -220,7 +223,6 @@ namespace WF_SyncFolderDemo
             watcher.Changed += Watcher_Changed;
             watcher.Renamed += Watcher_Renamed;
             //watcher.Error += Watcher_Error;
-            watcher.EndInit();
             watcher.EnableRaisingEvents = true;
             //}
         }
@@ -315,7 +317,7 @@ namespace WF_SyncFolderDemo
 
         private void Watcher_Created(object sender, System.IO.FileSystemEventArgs e)
         {
-            //Console.WriteLine(e.FullPath + " | " + e.ChangeType);
+            Console.WriteLine(e.FullPath + " | " + e.ChangeType);
             creates++;
             string fls = e.FullPath;
             string destFilePath;
@@ -334,11 +336,9 @@ namespace WF_SyncFolderDemo
 
 
             // 创建事件太慢，把要创建的文件放队列，在线程去执行
-            fileQueue.Enqueue(destFilePath);
-            //if (fileQueue.Count > 2000)
-            //    Thread.Sleep(2000);
-            //}
-            //}
+            //fileQueue.Enqueue(destFilePath);
+
+            fileQueue.Enqueue(new MyFileInfo { Path = destFilePath, ChnageType = e.ChangeType });
 
         }
 
@@ -375,46 +375,33 @@ namespace WF_SyncFolderDemo
             //}, this);
 
             destFilePath = destRootPath + "\\" + e.Name;
-            try
+
+            while (!FileOpHelper.FileIsReady(fls))
             {
-                
-
-                while (!FileOpHelper.FileIsReady(fls))
-                {
-                    continue;
-                }
-
-                File.Copy(fls, destFilePath); // 复制文件总是无法将内容复制成功
-
-                // 复制就是先创建，然后把数据写进去 --> 测试还是无法解决
-                //if (!File.Exists(destFilePath))
-                //{
-                //    var fs = File.Create(destFilePath);
-                //    fs.Dispose();
-                //    fs.Close();
-                //}
-
-                //watcher.EnableRaisingEvents = false; 
-                //using (FileStream fs = new FileStream(fls, FileMode.Open))
-                //{
-                //    using (StreamReader sr = new StreamReader(fs))
-                //    {
-                //        using (StreamWriter sw = new StreamWriter(destFilePath))
-                //        {
-                //            sw.Write(sr.ReadToEnd());
-                //        }
-                //    }
-                //}
+                continue;
             }
-            catch (IOException copyError)
-            {
-                File.Copy(fls, destFilePath, true);
-                throw copyError;
-            }
-            finally
-            {
-                watcher.EnableRaisingEvents = true;
-            }
+
+            File.Copy(fls, destFilePath, true); // 复制文件总是无法将内容复制成功
+
+            // 复制就是先创建，然后把数据写进去 --> 测试还是无法解决
+            //if (!File.Exists(destFilePath))
+            //{
+            //    var fs = File.Create(destFilePath);
+            //    fs.Dispose();
+            //    fs.Close();
+            //}
+
+            //watcher.EnableRaisingEvents = false; 
+            //using (FileStream fs = new FileStream(fls, FileMode.Open))
+            //{
+            //    using (StreamReader sr = new StreamReader(fs))
+            //    {
+            //        using (StreamWriter sw = new StreamWriter(destFilePath))
+            //        {
+            //            sw.Write(sr.ReadToEnd());
+            //        }
+            //    }
+            //}
         }
 
         private void Watcher_Renamed(object sender, RenamedEventArgs e)

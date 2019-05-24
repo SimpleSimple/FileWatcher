@@ -32,7 +32,7 @@ namespace ConsoleAppTest
                 {
                     if (fileQueue.Count > 0)
                     {
-                        aa:
+                    aa:
                         h++;
                         Console.WriteLine("process files：" + fileQueue.Count);
                         string destFilePath = null;
@@ -72,7 +72,7 @@ namespace ConsoleAppTest
                 {
                     if (delFileQueue.Count > 0)
                     {
-                        bb:
+                    bb:
                         k++;
                         Console.WriteLine("process del files：" + delFileQueue.Count);
                         string destFilePath = null;
@@ -124,7 +124,7 @@ namespace ConsoleAppTest
 
             watcher.Created += Watcher_Created;
             watcher.Deleted += Watcher_Deleted;
-            watcher.Changed+=Watcher_Changed;
+            watcher.Changed += Watcher_Changed;
             watcher.Error += Watcher_Error;
 
             watcher.EnableRaisingEvents = true;
@@ -133,7 +133,9 @@ namespace ConsoleAppTest
 
         private void Watcher_Changed(object sender, FileSystemEventArgs e)
         {
-            
+            // 当创建文件时，复制文件到目标路径
+            string destFilePath = destRootPath + @"\" + e.Name;
+            File.Copy(e.FullPath, destFilePath, true);
         }
 
         private void Watcher_Error(object sender, ErrorEventArgs e)

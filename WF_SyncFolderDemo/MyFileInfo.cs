@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -11,6 +12,8 @@ namespace WF_SyncFolderDemo
         public string Path { get; set; }
 
         public FileType FileType { get; set; }
+
+        public WatcherChangeTypes ChnageType { get; set; }
     }
 
     public enum FileType
