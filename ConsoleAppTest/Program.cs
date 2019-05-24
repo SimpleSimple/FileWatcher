@@ -124,10 +124,16 @@ namespace ConsoleAppTest
 
             watcher.Created += Watcher_Created;
             watcher.Deleted += Watcher_Deleted;
+            watcher.Changed+=Watcher_Changed;
             watcher.Error += Watcher_Error;
 
             watcher.EnableRaisingEvents = true;
             //}
+        }
+
+        private void Watcher_Changed(object sender, FileSystemEventArgs e)
+        {
+            
         }
 
         private void Watcher_Error(object sender, ErrorEventArgs e)

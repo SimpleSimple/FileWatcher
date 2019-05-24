@@ -67,7 +67,7 @@ namespace WF_SyncFolderDemo
                         string destFilePath = null;
                         fileQueue.TryDequeue(out destFilePath);
                         FileStream fs = null;
-                        aa:
+                    aa:
                         try
                         {
                             // 真实创建文件方法
@@ -123,10 +123,10 @@ namespace WF_SyncFolderDemo
                     if (delFileQueue.Count > 0)
                     {
                         k++;
-                        Console.WriteLine("process del files：" + delFileQueue.Count);
+                        //Console.WriteLine("process del files：" + delFileQueue.Count);
                         string destFilePath = null;
                         delFileQueue.TryDequeue(out destFilePath);
-                        bb:
+                    bb:
                         try
                         {
                             // 真正删除文件方法
@@ -147,11 +147,11 @@ namespace WF_SyncFolderDemo
                         }
                         finally
                         {
-                            if (k >= 3000)
-                            {
-                                k = 0;
-                                Thread.Sleep(1000);
-                            }
+                            //if (k >= 3000)
+                            //{
+                            //    k = 0;
+                            //    Thread.Sleep(1000);
+                            //}
                             if (delFileQueue.Count == 0)
                             {
                                 ThreadInteropUtils.OpeMainFormControl(() =>
@@ -208,6 +208,7 @@ namespace WF_SyncFolderDemo
             //using (watcher = new System.IO.FileSystemWatcher())
             //{
             watcher = new System.IO.FileSystemWatcher();
+            watcher.BeginInit();
             watcher.Path = sourceRootPath;
             watcher.NotifyFilter = NotifyFilters.FileName | NotifyFilters.DirectoryName | NotifyFilters.LastWrite;
             watcher.Filter = "*.*";
@@ -219,7 +220,7 @@ namespace WF_SyncFolderDemo
             watcher.Changed += Watcher_Changed;
             watcher.Renamed += Watcher_Renamed;
             //watcher.Error += Watcher_Error;
-
+            watcher.EndInit();
             watcher.EnableRaisingEvents = true;
             //}
         }
@@ -364,20 +365,6 @@ namespace WF_SyncFolderDemo
             Console.WriteLine(e.FullPath + " | " + e.ChangeType);
             //if (e.ChangeType == WatcherChangeTypes.Changed)
             //    return;
-            //changes++;
-            //if (creates > 0 && changes > 0)
-            //{
-            //    creates = 0;
-            //    changes = 0;
-            //    return;
-            //}
-
-            //if (changes > 1)
-            //{
-            //    if (changes >= 3000)
-            //        changes = 0;
-            //    return;
-            //}
 
             string fls = e.FullPath;
             string destFilePath;
@@ -387,27 +374,47 @@ namespace WF_SyncFolderDemo
             //    this.richTextBox1.Text += "Change folder or file was happened..." + Environment.NewLine;
             //}, this);
 
-            ////FileOpHelper.CopyDirectory(sourceRootPath, destRootPath, true);
+            destFilePath = destRootPath + "\\" + e.Name;
             try
             {
-                //aa:
-                if (!FileOpHelper.FileIsReady(fls)) return;
+                
 
-                destFilePath = destRootPath + "\\" + e.Name;
-                FileInfo flinfo = new FileInfo(fls);
-                //if (flinfo.Exists)
+                while (!FileOpHelper.FileIsReady(fls))
+                {
+                    continue;
+                }
+
+                File.Copy(fls, destFilePath); // 复制文件总是无法将内容复制成功
+
+                // 复制就是先创建，然后把数据写进去 --> 测试还是无法解决
+                //if (!File.Exists(destFilePath))
                 //{
-                flinfo.CopyTo(destFilePath, true);
-            }
-            catch (IOException ex)
-            {
-                throw ex;
-            }
+                //    var fs = File.Create(destFilePath);
+                //    fs.Dispose();
+                //    fs.Close();
+                //}
 
-            //ThreadInteropUtils.OpeMainFormControl(() =>
-            //{
-            //    this.richTextBox1.Text += "Synchronizing file completed..." + Environment.NewLine + Environment.NewLine;
-            //}, this);
+                //watcher.EnableRaisingEvents = false;
+                //using (FileStream fs = new FileStream(fls, FileMode.Open))
+                //{
+                //    using (StreamReader sr = new StreamReader(fs))
+                //    {
+                //        using (StreamWriter sw = new StreamWriter(destFilePath))
+                //        {
+                //            sw.Write(sr.ReadToEnd());
+                //        }
+                //    }
+                //}
+            }
+            catch (IOException copyError)
+            {
+                File.Copy(fls, destFilePath, true);
+                throw copyError;
+            }
+            finally
+            {
+                watcher.EnableRaisingEvents = true;
+            }
         }
 
         private void Watcher_Renamed(object sender, RenamedEventArgs e)

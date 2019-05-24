@@ -107,7 +107,7 @@ namespace WF_SyncFolderDemo
                 {
                     Directory.Delete(destPath, true);
                 }
-                if (File.Exists(destPath) && !FileStatusHelper.IsFileOccupied(destPath))
+                if (File.Exists(destPath))
                 {
                     File.Delete(destPath);
                 }
