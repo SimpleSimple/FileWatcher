@@ -9,7 +9,9 @@ namespace WF_SyncFolderDemo
 {
     public class MyFileInfo
     {
-        public string Path { get; set; }
+        public string SourcePath { get; set; }
+
+        public string DestinationPath { get; set; }
 
         public FileType FileType { get; set; }
 

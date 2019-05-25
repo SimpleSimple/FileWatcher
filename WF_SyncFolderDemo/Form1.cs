@@ -70,48 +70,62 @@ namespace WF_SyncFolderDemo
                         //fileQueue.TryDequeue(out destFilePath);
                         var fileInfo = new MyFileInfo();
                         fileQueue.TryDequeue(out fileInfo);
-                        destFilePath = fileInfo.Path;
+                        destFilePath = fileInfo.DestinationPath;
                         FileStream fs = null;
-                    aa:
-                        try
-                        {
-                            // 真实创建文件方法
-                            if (Path.GetExtension(destFilePath) != string.Empty)
-                            {
-                                fs = File.Create(destFilePath);
-                                fs.Dispose();
-                                fs.Close();
-                            }
-                            else
-                            {
-                                if (!Directory.Exists(destFilePath))
-                                {
-                                    Directory.CreateDirectory(destFilePath);
-                                }
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine(ex.Message);
-                            goto aa;
-                        }
-                        finally
-                        {
-                            //if (h >= 3000)
-                            //{
-                            //    h = 0;
-                            //    Thread.Sleep(1000);
-                            //}
-                            if (fileQueue.Count == 0)
-                            {
-                                ThreadInteropUtils.OpeMainFormControl(() =>
-                                {
-                                    getSpecifiedPathDirsList(sourceRootPath, this.treeView1);
-                                    getSpecifiedPathDirsList(destRootPath, this.treeView2);
-                                }, this);
-                            }
 
+                        switch (fileInfo.ChnageType)
+                        {
+                            case WatcherChangeTypes.Created:
+                                try
+                                {
+                                    // 真实创建文件方法
+                                    if (Path.GetExtension(destFilePath) != string.Empty)
+                                    {
+                                        fs = File.Create(destFilePath);
+                                        fs.Dispose();
+                                        fs.Close();
+                                    }
+                                    else
+                                    {
+                                        if (!Directory.Exists(destFilePath))
+                                        {
+                                            Directory.CreateDirectory(destFilePath);
+                                        }
+                                    }
+                                }
+                                //catch (Exception ex)
+                                //{
+                                //    Console.WriteLine(ex.Message);
+                                //    goto aa;
+                                //}
+                                finally
+                                {
+                                    //if (h >= 3000)
+                                    //{
+                                    //    h = 0;
+                                    //    Thread.Sleep(1000);
+                                    //}
+                                    if (fileQueue.Count == 0)
+                                    {
+                                        ThreadInteropUtils.OpeMainFormControl(() =>
+                                        {
+                                            getSpecifiedPathDirsList(sourceRootPath, this.treeView1);
+                                            getSpecifiedPathDirsList(destRootPath, this.treeView2);
+                                        }, this);
+                                    }
+
+                                }
+                                break;
+                            case WatcherChangeTypes.Changed:
+                                while (!FileOpHelper.FileIsReady(fileInfo.SourcePath))
+                                {
+                                    continue;
+                                }
+
+                                File.Copy(fileInfo.SourcePath, destFilePath, true); // 复制文件总是无法将内容复制成功
+                                break;
                         }
+
                     }
                     else
                         Thread.Sleep(1000);
@@ -130,7 +144,7 @@ namespace WF_SyncFolderDemo
                         //Console.WriteLine("process del files：" + delFileQueue.Count);
                         string destFilePath = null;
                         delFileQueue.TryDequeue(out destFilePath);
-                    bb:
+                        bb:
                         try
                         {
                             // 真正删除文件方法
@@ -338,7 +352,7 @@ namespace WF_SyncFolderDemo
             // 创建事件太慢，把要创建的文件放队列，在线程去执行
             //fileQueue.Enqueue(destFilePath);
 
-            fileQueue.Enqueue(new MyFileInfo { Path = destFilePath, ChnageType = e.ChangeType });
+            fileQueue.Enqueue(new MyFileInfo { DestinationPath = destFilePath, ChnageType = e.ChangeType });
 
         }
 
@@ -376,32 +390,16 @@ namespace WF_SyncFolderDemo
 
             destFilePath = destRootPath + "\\" + e.Name;
 
-            while (!FileOpHelper.FileIsReady(fls))
-            {
-                continue;
-            }
-
-            File.Copy(fls, destFilePath, true); // 复制文件总是无法将内容复制成功
-
-            // 复制就是先创建，然后把数据写进去 --> 测试还是无法解决
-            //if (!File.Exists(destFilePath))
+            //while (!FileOpHelper.FileIsReady(fls))
             //{
-            //    var fs = File.Create(destFilePath);
-            //    fs.Dispose();
-            //    fs.Close();
+            //    continue;
             //}
 
-            //watcher.EnableRaisingEvents = false; 
-            //using (FileStream fs = new FileStream(fls, FileMode.Open))
-            //{
-            //    using (StreamReader sr = new StreamReader(fs))
-            //    {
-            //        using (StreamWriter sw = new StreamWriter(destFilePath))
-            //        {
-            //            sw.Write(sr.ReadToEnd());
-            //        }
-            //    }
-            //}
+            //File.Copy(fls, destFilePath, true); // 复制文件总是无法将内容复制成功
+
+            fileQueue.Enqueue(new MyFileInfo { SourcePath = fls, DestinationPath = destFilePath,
+                ChnageType = e.ChangeType });
+
         }
 
         private void Watcher_Renamed(object sender, RenamedEventArgs e)
